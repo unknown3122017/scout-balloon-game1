@@ -11,6 +11,8 @@
       font-family: 'Tahoma', sans-serif;
       color: white;
       text-align: center;
+      user-select: none;
+      touch-action: none;
     }
 
     canvas {
@@ -34,6 +36,7 @@
       align-items: center;
       color: white;
       font-family: 'Tahoma', sans-serif;
+      z-index: 10;
     }
 
     .title {
@@ -70,6 +73,7 @@
       font-size: 20px;
       color: #fff;
       text-shadow: 1px 1px 2px #000;
+      z-index: 5;
     }
 
     .hearts {
@@ -82,21 +86,65 @@
       height: 24px;
       margin: 0 2px;
     }
+
+    /* أزرار اللمس */
+    #mobileControls {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      width: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: 25px;
+      z-index: 15;
+    }
+
+    .btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #00bcd4, #006064);
+      color: white;
+      font-size: 22px;
+      font-weight: bold;
+      border: 2px solid #00eaff;
+      box-shadow: 0 0 10px #00ffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+    }
+
+    .btn:active {
+      transform: scale(0.9);
+      box-shadow: 0 0 5px #00ffff;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
   <div id="overlay">
     <div class="title">🎈 لعبة الكشافة والبالون 🎯</div>
     <div class="subtitle">احمِ البالون من الأعداء باستخدام سهامك!</div>
     <div class="subtitle">⬅️➡️ للحركة | ⎵ لإطلاق الأسهم</div>
     <div class="start-text">اضغط Enter للبدء</div>
   </div>
+
   <div id="hud" style="display:none;">
     ❤️ القلوب:
     <span class="hearts" id="hearts"></span>
     | ⏱️ الوقت: <span id="time">0</span> ث
     | 🎯 النقاط: <span id="score">0</span>
+  </div>
+
+  <!-- أزرار اللمس للجوال -->
+  <div id="mobileControls">
+    <div class="btn" id="leftBtn">⬅️</div>
+    <div class="btn" id="shootBtn">🎯</div>
+    <div class="btn" id="rightBtn">➡️</div>
+    <div class="btn" id="restartBtn">🔁</div>
   </div>
 
   <script>
@@ -126,11 +174,18 @@
     let elapsedTime = 0;
     const keys = {};
 
+    // 🧠 كشف الجهاز (جوال أو كمبيوتر)
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    const mobileControls = document.getElementById('mobileControls');
+    if (isMobile) {
+      mobileControls.style.display = 'flex';
+    }
+
     function drawHearts() {
       const heartsContainer = document.getElementById('hearts');
       heartsContainer.innerHTML = '';
       for (let i = 0; i < hearts; i++) {
-        heartsContainer.innerHTML += `<img src="balloon.png" class="heart">`;
+        heartsContainer.innerHTML += `<img src="heart.png" class="heart">`;
       }
     }
 
@@ -152,13 +207,13 @@
 
     function update() {
       if (!playing || gameOver) return;
-      if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
-      if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+      if (keys['ArrowLeft'] || keys['a'] || keys['left']) player.x -= player.speed;
+      if (keys['ArrowRight'] || keys['d'] || keys['right']) player.x += player.speed;
       if (player.x < 40) player.x = 40;
       if (player.x > W - 40) player.x = W - 40;
 
       if (player.cooldown > 0) player.cooldown--;
-      if (keys[' ']) shoot();
+      if (keys[' '] || keys['shoot']) shoot();
 
       for (let i = arrows.length - 1; i >= 0; i--) {
         arrows[i].y -= arrows[i].speed;
@@ -169,7 +224,6 @@
         const e = enemies[i];
         e.x += e.speed;
 
-        // إذا لمس البالون فوق اللاعب
         const balloonX = player.x;
         const balloonY = player.y - 120;
         if (Math.abs(e.x - balloonX) < 40 && Math.abs(e.y - balloonY) < 40) {
@@ -178,9 +232,7 @@
           sndPop.play();
           enemies.splice(i, 1);
           drawHearts();
-          if (hearts <= 0) {
-            endGame();
-          }
+          if (hearts <= 0) endGame();
           continue;
         }
 
@@ -208,15 +260,9 @@
 
     function draw() {
       ctx.drawImage(bgImg, 0, 0, W, H);
-
-      // البالون فوق اللاعب
       ctx.drawImage(balloonImg, player.x - 25, player.y - 130, 50, 70);
       ctx.drawImage(boyImg, player.x - player.w / 2, player.y - player.h / 2, player.w, player.h);
-
-      // الأسهم
       for (const a of arrows) ctx.drawImage(arrowImg, a.x - 10, a.y - 30, 20, 40);
-
-      // الأعداء
       for (const e of enemies) ctx.drawImage(enemyImg, e.x - e.w / 2, e.y - e.h / 2, e.w, e.h);
     }
 
@@ -228,7 +274,7 @@
         <div class="title">💥 انتهت اللعبة 💥</div>
         <div class="subtitle">الوقت: ${elapsedTime} ثانية</div>
         <div class="subtitle">النقاط: ${score}</div>
-        <div class="start-text">اضغط Enter لإعادة اللعب</div>
+        <div class="start-text">${isMobile ? 'اضغط 🔁 لإعادة اللعب' : 'اضغط Enter لإعادة اللعب'}</div>
       `;
     }
 
@@ -251,14 +297,27 @@
       requestAnimationFrame(loop);
     }
 
+    // تحكم الكيبورد
     window.addEventListener('keydown', e => {
       keys[e.key] = true;
       if (e.key === 'Enter' && !playing) resetGame();
     });
     window.addEventListener('keyup', e => keys[e.key] = false);
 
+    // تحكم اللمس
+    if (isMobile) {
+      document.getElementById('leftBtn').addEventListener('touchstart', () => keys['left'] = true);
+      document.getElementById('leftBtn').addEventListener('touchend', () => keys['left'] = false);
+      document.getElementById('rightBtn').addEventListener('touchstart', () => keys['right'] = true);
+      document.getElementById('rightBtn').addEventListener('touchend', () => keys['right'] = false);
+      document.getElementById('shootBtn').addEventListener('touchstart', () => { keys['shoot'] = true; shoot(); });
+      document.getElementById('shootBtn').addEventListener('touchend', () => keys['shoot'] = false);
+      document.getElementById('restartBtn').addEventListener('touchstart', () => { if (!playing) resetGame(); });
+    }
+
     drawHearts();
     loop();
   </script>
 </body>
 </html>
+
