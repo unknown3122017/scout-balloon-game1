@@ -11,8 +11,8 @@
       font-family: 'Tahoma', sans-serif;
       color: white;
       text-align: center;
-      user-select: none;
       touch-action: none;
+      user-select: none;
     }
 
     canvas {
@@ -35,8 +35,6 @@
       justify-content: center;
       align-items: center;
       color: white;
-      font-family: 'Tahoma', sans-serif;
-      z-index: 10;
     }
 
     .title {
@@ -73,7 +71,6 @@
       font-size: 20px;
       color: #fff;
       text-shadow: 1px 1px 2px #000;
-      z-index: 5;
     }
 
     .hearts {
@@ -88,37 +85,39 @@
     }
 
     /* أزرار اللمس */
-    #mobileControls {
+    #touchControls {
       position: absolute;
-      bottom: 30px;
-      left: 0;
-      width: 100%;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       display: none;
-      justify-content: center;
-      align-items: center;
-      gap: 25px;
-      z-index: 15;
+      gap: 20px;
     }
 
     .btn {
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      background: radial-gradient(circle, #00bcd4, #006064);
-      color: white;
-      font-size: 22px;
-      font-weight: bold;
-      border: 2px solid #00eaff;
-      box-shadow: 0 0 10px #00ffff;
+      border: 2px solid #0ff8;
+      background: rgba(0, 255, 255, 0.15);
+      color: #0ff;
+      font-size: 28px;
       display: flex;
       justify-content: center;
       align-items: center;
+      backdrop-filter: blur(6px);
+      transition: 0.1s;
       user-select: none;
     }
 
     .btn:active {
-      transform: scale(0.9);
-      box-shadow: 0 0 5px #00ffff;
+      background: rgba(0, 255, 255, 0.4);
+      transform: scale(0.95);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 20px;
     }
   </style>
 </head>
@@ -129,7 +128,7 @@
     <div class="title">🎈 لعبة الكشافة والبالون 🎯</div>
     <div class="subtitle">احمِ البالون من الأعداء باستخدام سهامك!</div>
     <div class="subtitle">⬅️➡️ للحركة | ⎵ لإطلاق الأسهم</div>
-    <div class="start-text">اضغط Enter للبدء</div>
+    <div class="start-text">اضغط Enter أو زر 🔁 للبدء</div>
   </div>
 
   <div id="hud" style="display:none;">
@@ -140,11 +139,13 @@
   </div>
 
   <!-- أزرار اللمس للجوال -->
-  <div id="mobileControls">
-    <div class="btn" id="leftBtn">⬅️</div>
-    <div class="btn" id="shootBtn">🎯</div>
-    <div class="btn" id="rightBtn">➡️</div>
-    <div class="btn" id="restartBtn">🔁</div>
+  <div id="touchControls">
+    <div class="btn-row">
+      <div class="btn" id="leftBtn">⬅️</div>
+      <div class="btn" id="rightBtn">➡️</div>
+      <div class="btn" id="shootBtn">🎯</div>
+      <div class="btn" id="restartBtn">🔁</div>
+    </div>
   </div>
 
   <script>
@@ -164,22 +165,15 @@
     const sndPop = new Audio('pop.wav');
 
     const player = { x: W / 2, y: H - 100, w: 70, h: 70, speed: 6, cooldown: 0 };
-    let arrows = [];
-    let enemies = [];
-    let score = 0;
-    let hearts = 3;
-    let gameOver = false;
-    let playing = false;
-    let startTime = 0;
-    let elapsedTime = 0;
+    let arrows = [], enemies = [];
+    let score = 0, hearts = 3, gameOver = false, playing = false;
+    let startTime = 0, elapsedTime = 0;
     const keys = {};
 
-    // 🧠 كشف الجهاز (جوال أو كمبيوتر)
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-    const mobileControls = document.getElementById('mobileControls');
-    if (isMobile) {
-      mobileControls.style.display = 'flex';
-    }
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    const touchControls = document.getElementById('touchControls');
+
+    if (isMobile) touchControls.style.display = 'flex';
 
     function drawHearts() {
       const heartsContainer = document.getElementById('hearts');
@@ -274,7 +268,7 @@
         <div class="title">💥 انتهت اللعبة 💥</div>
         <div class="subtitle">الوقت: ${elapsedTime} ثانية</div>
         <div class="subtitle">النقاط: ${score}</div>
-        <div class="start-text">${isMobile ? 'اضغط 🔁 لإعادة اللعب' : 'اضغط Enter لإعادة اللعب'}</div>
+        <div class="start-text">اضغط Enter أو 🔁 لإعادة اللعب</div>
       `;
     }
 
@@ -297,23 +291,24 @@
       requestAnimationFrame(loop);
     }
 
-    // تحكم الكيبورد
     window.addEventListener('keydown', e => {
       keys[e.key] = true;
       if (e.key === 'Enter' && !playing) resetGame();
     });
     window.addEventListener('keyup', e => keys[e.key] = false);
 
-    // تحكم اللمس
-    if (isMobile) {
-      document.getElementById('leftBtn').addEventListener('touchstart', () => keys['left'] = true);
-      document.getElementById('leftBtn').addEventListener('touchend', () => keys['left'] = false);
-      document.getElementById('rightBtn').addEventListener('touchstart', () => keys['right'] = true);
-      document.getElementById('rightBtn').addEventListener('touchend', () => keys['right'] = false);
-      document.getElementById('shootBtn').addEventListener('touchstart', () => { keys['shoot'] = true; shoot(); });
-      document.getElementById('shootBtn').addEventListener('touchend', () => keys['shoot'] = false);
-      document.getElementById('restartBtn').addEventListener('touchstart', () => { if (!playing) resetGame(); });
+    // أزرار اللمس للجوال
+    function bindTouch(btn, key) {
+      btn.addEventListener('touchstart', () => { keys[key] = true; });
+      btn.addEventListener('touchend', () => { keys[key] = false; });
     }
+
+    bindTouch(document.getElementById('leftBtn'), 'left');
+    bindTouch(document.getElementById('rightBtn'), 'right');
+    bindTouch(document.getElementById('shootBtn'), 'shoot');
+    document.getElementById('restartBtn').addEventListener('touchstart', () => {
+      if (!playing) resetGame();
+    });
 
     drawHearts();
     loop();
